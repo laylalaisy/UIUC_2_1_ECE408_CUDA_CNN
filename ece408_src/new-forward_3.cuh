@@ -19,6 +19,9 @@ __global__ void forward_kernel(float *y, const float *x, const float *k, const i
     The goal here is to be correct AND fast.
     We have some nice #defs for you below to simplify indexing. Feel free to use them, or create your own.
     */
+    const int H_out = H - K + 1;
+    const int W_out = W - K + 1;
+    int W_grid = ceil((float)W_out/TILE_WIDTH);
 
 // An example use of these macros:
 // float a = y4d(0,0,0,0)
@@ -34,52 +37,25 @@ __global__ void forward_kernel(float *y, const float *x, const float *k, const i
     int ty = threadIdx.y;
     int tz = threadIdx.z;
 
-    const int H_out = H - K + 1;
-    const int W_out = W - K + 1;
-    int W_grid = ceil((float)W_out/TILE_WIDTH);
-
-    int TILE_WIDTH_K = TILE_WIDTH + K -1;
-    __shared__ float sharedX[16][16];
-    __shared__ float sharedW[5][5];
-    // extern __shared__ float shared[];
-    // float* sharedX = &shared[0];
-    // float* sharedW = &shared[TILE_WIDTH_K*TILE_WIDTH_K];
-
     int b = bx;
     int m = by;
-    int h_base = (bz / W_grid) * TILE_WIDTH;
-    int w_base = (bz % W_grid) * TILE_WIDTH;
-    int h = h_base + ty;
-    int w = w_base + tx;
+    int h = (bz / W_grid) * TILE_WIDTH + ty;
+    int w = (bz % W_grid) * TILE_WIDTH + tx;
 
-    float acc = 0.0;
+	float acc = 0.0;
 
-    for (int c=0; c<C; c++) {
-      // 1. load the filter W into the shared memory
-      if ((tx < K) && (ty < K)) {
-        sharedW[ty][tx] = k4d(m, c, ty, tx);
-      }
-      __syncthreads();
-
-      // 2. load tile from X into the shared memory
-      for (int i=h; i<h_base+TILE_WIDTH_K; i+=TILE_WIDTH) {
-        for (int j=w; j<w_base+TILE_WIDTH_K; j+=TILE_WIDTH) {
-          sharedX[i-h_base][j-w_base] = x4d(b,c, i, j);
-        }
-      }
-      __syncthreads();
-
-      // 3. compute partial sum of output Y
-      for (int p=0; p<K; p++) {
-        for (int q=0; q<K; q++) {
-          acc += sharedX[ty+p][tx+q]*sharedW[p][q];
-        }
-      }
-      __syncthreads();
+    // Boundary check;
+    if (b < B && m < M && h < H_out && w < W_out) {
+		for (int c = 0; c < C; c++) {
+        	for (int p = 0; p < K; p++) {
+          		for (int q = 0; q < K; q ++) {
+            		acc += (x4d(b,c,h+p,w+q) * k4d(m,c,p,q));
+        		}
+      		}
+		}
+		y4d(b, m, h, w) = acc;
     }
-
-    y4d(b, m, h, w) = acc;
-
+    
 
 #undef y4d
 #undef x4d
@@ -99,19 +75,18 @@ void forward<gpu, float>(mshadow::Tensor<gpu, 4, float> &y, const mshadow::Tenso
     // Remove this assertion when you do your implementation!
     // CHECK_EQ(0, 1) << "Missing GPU implementation!";
 
-    cudaStream_t s = y.stream_->stream_;
+	// cudaStream_t s = y.stream_->stream_;
 
     // Extract the tensor dimensions into B,M,C,H,W,K
-    const int B = x.shape_[0];  // num of batch
-    const int M = y.shape_[1];  // num of output feature map
-    const int C = x.shape_[1];  // num of channel
-    const int H = x.shape_[2];  // height
-    const int W = x.shape_[3];  // width
-    const int K = w.shape_[3];  // size of filter
+    const int B = x.shape_[0];
+    const int M = y.shape_[1];
+    const int C = x.shape_[1];
+    const int H = x.shape_[2];
+    const int W = x.shape_[3];
+    const int K = w.shape_[3];
 
     const int H_out = H - K + 1;
     const int W_out = W - K + 1;
-    const int TILE_WIDTH_K = TILE_WIDTH + K - 1;
     int H_grid = ceil((float)H_out/TILE_WIDTH);
     int W_grid = ceil((float)W_out/TILE_WIDTH);
     int Z = H_grid * W_grid;
@@ -121,7 +96,7 @@ void forward<gpu, float>(mshadow::Tensor<gpu, 4, float> &y, const mshadow::Tenso
     dim3 blockDim(TILE_WIDTH, TILE_WIDTH, 1);
 
     // Call the kernel
-    forward_kernel<<<gridDim, blockDim, 0, s>>>(y.dptr_,x.dptr_,w.dptr_, B,M,C,H,W,K);
+    forward_kernel<<<gridDim, blockDim>>>(y.dptr_,x.dptr_,w.dptr_, B,M,C,H,W,K);
 
     // Use MSHADOW_CUDA_CALL to check for CUDA runtime errors.
     MSHADOW_CUDA_CALL(cudaDeviceSynchronize());
