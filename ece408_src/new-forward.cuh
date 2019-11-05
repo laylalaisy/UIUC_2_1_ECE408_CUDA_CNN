@@ -1,4 +1,3 @@
-
 #ifndef MXNET_OPERATOR_NEW_FORWARD_CUH_
 #define MXNET_OPERATOR_NEW_FORWARD_CUH_
 
@@ -23,6 +22,7 @@ __global__ void forward_kernel(float *y, const float *x, const float *k, const i
 // An example use of these macros:
 // float a = y4d(0,0,0,0)
 // y4d(0,0,0,0) = a
+
 #define y4d(i3, i2, i1, i0) y[(i3) * (M * H_out * W_out) + (i2) * (H_out * W_out) + (i1) * (W_out) + i0]
 #define x4d(i3, i2, i1, i0) x[(i3) * (C * H * W) + (i2) * (H * W) + (i1) * (W) + i0]
 #define k4d(i3, i2, i1, i0) k[(i3) * (C * K * K) + (i2) * (K * K) + (i1) * (K) + i0]
@@ -39,11 +39,9 @@ __global__ void forward_kernel(float *y, const float *x, const float *k, const i
     int W_grid = ceil((float)W_out/TILE_WIDTH);
 
     int TILE_WIDTH_K = TILE_WIDTH + K -1;
-    __shared__ float sharedX[16][16];
-    __shared__ float sharedW[5][5];
-    // extern __shared__ float shared[];
-    // float* sharedX = &shared[0];
-    // float* sharedW = &shared[TILE_WIDTH_K*TILE_WIDTH_K];
+    extern __shared__ float shared[];
+    float* sharedX = &shared[0];
+    float* sharedW = &shared[TILE_WIDTH_K*TILE_WIDTH_K];
 
     int b = bx;
     int m = by;
@@ -57,14 +55,19 @@ __global__ void forward_kernel(float *y, const float *x, const float *k, const i
     for (int c=0; c<C; c++) {
       // 1. load the filter W into the shared memory
       if ((tx < K) && (ty < K)) {
-        sharedW[ty][tx] = k4d(m, c, ty, tx);
+        sharedW[ty*K+tx] = k4d(m, c, ty, tx);
       }
       __syncthreads();
 
       // 2. load tile from X into the shared memory
       for (int i=h; i<h_base+TILE_WIDTH_K; i+=TILE_WIDTH) {
         for (int j=w; j<w_base+TILE_WIDTH_K; j+=TILE_WIDTH) {
-          sharedX[i-h_base][j-w_base] = x4d(b,c, i, j);
+          if (i<H && j<W) {
+            sharedX[(i-h_base)*TILE_WIDTH_K+(j-w_base)] = x4d(b,c, i, j);
+          } else {
+            sharedX[(i-h_base)*TILE_WIDTH_K+(j-w_base)] = 0;
+          }
+          
         }
       }
       __syncthreads();
@@ -72,14 +75,17 @@ __global__ void forward_kernel(float *y, const float *x, const float *k, const i
       // 3. compute partial sum of output Y
       for (int p=0; p<K; p++) {
         for (int q=0; q<K; q++) {
-          acc += sharedX[ty+p][tx+q]*sharedW[p][q];
+          if (((ty+p)<TILE_WIDTH_K) && ((tx+q)<TILE_WIDTH_K)) {
+            acc += sharedX[(ty+p)*TILE_WIDTH_K+(tx+q)]*sharedW[p*K+q];
+          }
         }
       }
       __syncthreads();
     }
 
-    y4d(b, m, h, w) = acc;
-
+    if (b<B && m<M && h<H_out && w<W_out) {
+      y4d(b, m, h, w) = acc;
+    }
 
 #undef y4d
 #undef x4d
@@ -121,11 +127,11 @@ void forward<gpu, float>(mshadow::Tensor<gpu, 4, float> &y, const mshadow::Tenso
     dim3 blockDim(TILE_WIDTH, TILE_WIDTH, 1);
 
     // Call the kernel
-    forward_kernel<<<gridDim, blockDim, 0, s>>>(y.dptr_,x.dptr_,w.dptr_, B,M,C,H,W,K);
+    size_t shared = sizeof(float)*(TILE_WIDTH_K*TILE_WIDTH_K+K*K);
+    forward_kernel<<<gridDim, blockDim, shared, s>>>(y.dptr_,x.dptr_,w.dptr_, B,M,C,H,W,K);
 
     // Use MSHADOW_CUDA_CALL to check for CUDA runtime errors.
     MSHADOW_CUDA_CALL(cudaDeviceSynchronize());
-
 }
 
 /*
@@ -141,3 +147,5 @@ void forward(mshadow::Tensor<gpu, 4, DType> &y, const mshadow::Tensor<gpu, 4, DT
 }
 
 #endif
+
+
