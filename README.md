@@ -1,3 +1,26 @@
+## Optimizations
+
+We are going to suggest a set of possible optimizations for you to attempt.
+
+* Unroll + shared-memory Matrix multiply
+* ✅ Shared Memory convolution
+* Kernel fusion for unrolling and matrix-multiplication
+* Weight matrix (kernel values) in constant memory
+* Tuning with restrict and loop unrolling (considered as one optimization only if you do both)
+* An advanced matrix multiplication algorithm (register-tiled, for example)
+* Sweeping various parameters to find best values (block sizes, amount of thread coarsening)
+* Exploiting parallelism in input images, input channels, and output channels.
+* Multiple kernel implementations for different layer sizes
+* Input channel reduction: tree
+* Input channel reduction: atomics
+* ... 
+
+Other optimizations that do not fit in here may also be considered as optimizations.
+If in doubt, contact the course staff.
+
+
+
+
 # ECE408/CS483 Final Project
 
 ## Introduction
