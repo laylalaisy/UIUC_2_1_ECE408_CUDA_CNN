@@ -6,7 +6,7 @@ We are going to suggest a set of possible optimizations for you to attempt.
 * ✅ [Shared Memory convolution](ece408_src/new-forward_4_sharedMemory.cuh)
 * Kernel fusion for unrolling and matrix-multiplication
 * Weight matrix (kernel values) in constant memory
-* Tuning with restrict and loop unrolling (considered as one optimization only if you do both)
+* [Working On]Tuning with restrict and loop unrolling (considered as one optimization only if you do both)
 * An advanced matrix multiplication algorithm (register-tiled, for example)
 * Sweeping various parameters to find best values (block sizes, amount of thread coarsening)
 * Exploiting parallelism in input images, input channels, and output channels.
