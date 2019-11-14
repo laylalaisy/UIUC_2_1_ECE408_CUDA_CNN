@@ -2,7 +2,7 @@
 
 We are going to suggest a set of possible optimizations for you to attempt.
 
-* Unroll + shared-memory Matrix multiply
+* ✅ [Unroll + shared-memory Matrix multiply](ece408_src/new-forward_4_unroll.cuh)
 * ✅ [Shared Memory convolution](ece408_src/new-forward_4_sharedMemory.cuh)
 * Kernel fusion for unrolling and matrix-multiplication
 * ✅ [Weight matrix (kernel values) in constant memory](ece408_src/new-forward_4_shared_constMem.cuh)
