@@ -4,13 +4,17 @@
 #include <mxnet/base.h>
 
 #define TILE_WIDTH 16
+#define BLOCK_SIZE 32
 
 namespace mxnet
 {
 namespace op
 {
 
-__global__ void forward_kernel(float *y, const float *x, const float *k, const int B, const int M, const int C, const int H, const int W, const int K)
+__constant__ float constMem[8192];
+
+/* ===== Optimization 1: Shared Memory Convolution==== */
+__global__ void forward_kernel_shared(float *y, const float *x, const float *k, const int B, const int M, const int C, const int H, const int W, const int K)
 {
     /*
     Modify this function to implement the forward pass described in Chapter 16.
@@ -122,13 +126,15 @@ void forward<gpu, float>(mshadow::Tensor<gpu, 4, float> &y, const mshadow::Tenso
     int W_grid = ceil((float)W_out/TILE_WIDTH);
     int Z = H_grid * W_grid;
 
+
+    // ===== Optimization 1: Shared Memory Convolution==== 
     // Set the kernel dimensions
     dim3 gridDim(B, M, Z);
     dim3 blockDim(TILE_WIDTH, TILE_WIDTH, 1);
 
     // Call the kernel
     size_t shared = sizeof(float)*(TILE_WIDTH_K*TILE_WIDTH_K+K*K);
-    forward_kernel<<<gridDim, blockDim, shared, s>>>(y.dptr_,x.dptr_,w.dptr_, B,M,C,H,W,K);
+    forward_kernel_shared<<<gridDim, blockDim, shared, s>>>(y.dptr_,x.dptr_,w.dptr_, B,M,C,H,W,K);
 
     // Use MSHADOW_CUDA_CALL to check for CUDA runtime errors.
     MSHADOW_CUDA_CALL(cudaDeviceSynchronize());
