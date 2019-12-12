@@ -358,7 +358,6 @@ void forward<gpu, float>(mshadow::Tensor<gpu, 4, float> &y, const mshadow::Tenso
     int W_grid = ceil((float)W_out/TILE_WIDTH);
     int Z = H_grid * W_grid;
 
-/*
     // ===== Optimization 1: Shared Memory Convolution==== 
     // Set the kernel dimensions
     dim3 gridDim(B, M, Z);
@@ -379,7 +378,7 @@ void forward<gpu, float>(mshadow::Tensor<gpu, 4, float> &y, const mshadow::Tenso
     // Call the kernel: shared memory with constant memory
     size_t shared = sizeof(float)*(TILE_WIDTH_K*TILE_WIDTH_K);
     forward_kernel_shared_constMem<<<gridDim, blockDim, shared, s>>>(y.dptr_, x.dptr_, B, M, C, H, W, K);
-*/
+
 
     // ===== Optimization 3: Unroll + shared-memory Matrix multiply ==== 
     // Set the unroll kernel
@@ -397,14 +396,13 @@ void forward<gpu, float>(mshadow::Tensor<gpu, 4, float> &y, const mshadow::Tenso
     // Call the kernel
     unroll<<<gridDim1, blockDim1, 0, s>>>(x.dptr_, x_unroll, C, H, W, K, H_out, W_out, H_unroll, W_unroll);
     forward_kernel_unroll<<<gridDim2, blockDim2, 0 ,s>>>(x_unroll, y.dptr_, w.dptr_, B, M, C, H, W, K, H_out, W_out, H_unroll, W_unroll);
-    
-/*
+
     // ===== Optimization 4: Tiled Matrix Multiplication ==== 
     dim3 gridDim(ceil(H_out*W_out/(1.0*TILE_WIDTH)),ceil(M/(1.0*TILE_WIDTH)),B);
     dim3 blockDim(TILE_WIDTH,TILE_WIDTH,1);
     
     ConvLayerForward<<<gridDim, blockDim, 0, s>>>(C, K, M, H, W, W_out, H_out, x.dptr_, w.dptr_, y.dptr_);
-*/
+
 
     // Use MSHADOW_CUDA_CALL to check for CUDA runtime errors.
     MSHADOW_CUDA_CALL(cudaDeviceSynchronize());
