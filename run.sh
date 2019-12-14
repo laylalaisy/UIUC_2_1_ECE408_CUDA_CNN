@@ -34,6 +34,14 @@ case $1 in
 		cd UIUC_2_1_ECE408_FinalProject
 		;;
 
+	52)
+		echo "two layers tiled matrix multiplication"
+		cp ece408_src/new-forward_5_twoLayers.cuh ece408_src/new-forward.cuh
+		cd ..
+		rai -p UIUC_2_1_ECE408_FinalProject --queue rai_amd64_ece408
+		cd UIUC_2_1_ECE408_FinalProject
+		;;
+
 	*)
 		echo "Illegal argument!"
 		;;
