@@ -28,7 +28,7 @@ case $1 in
 
 	51)
 		echo -n "shared and constant memory"
-		cp ece408_src/new-forward_5_sharedMemory.cuh ece408_src/new-forward.cuh
+		cp ece408_src/new-forward_5_tiledMatrixMultiplication.cuh ece408_src/new-forward.cuh
 		cd ..
 		rai -p UIUC_2_1_ECE408_FinalProject --queue rai_amd64_ece408
 		cd UIUC_2_1_ECE408_FinalProject
