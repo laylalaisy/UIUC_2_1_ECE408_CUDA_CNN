@@ -3,7 +3,7 @@
 case $1 in
 
 	41)
-		echo -n "shared memory"
+		echo "shared memory"
 		cp ece408_src/new-forward_4_sharedMemory.cuh ece408_src/new-forward.cuh
 		cd ..
 		rai -p UIUC_2_1_ECE408_FinalProject --queue rai_amd64_ece408
@@ -11,7 +11,7 @@ case $1 in
 		;;
 
 	42)
-		echo -n "shared and constant memory"
+		echo "shared and constant memory"
 		cp ece408_src/new-forward_4_shared_constMem.cuh ece408_src/new-forward.cuh
 		cd ..
 		rai -p UIUC_2_1_ECE408_FinalProject --queue rai_amd64_ece408
@@ -19,7 +19,7 @@ case $1 in
 		;;
 
 	43)
-		echo -n "unrolling"
+		echo "unrolling"
 		cp ece408_src/new-forward_4_unroll.cuh ece408_src/new-forward.cuh
 		cd ..
 		rai -p UIUC_2_1_ECE408_FinalProject --queue rai_amd64_ece408
@@ -27,7 +27,7 @@ case $1 in
 		;;
 
 	51)
-		echo -n "shared and constant memory"
+		echo "tiled matrix multiplication"
 		cp ece408_src/new-forward_5_tiledMatrixMultiplication.cuh ece408_src/new-forward.cuh
 		cd ..
 		rai -p UIUC_2_1_ECE408_FinalProject --queue rai_amd64_ece408
@@ -35,7 +35,7 @@ case $1 in
 		;;
 
 	*)
-		echo -n "Illegal argument!"
+		echo "Illegal argument!"
 		;;
 
 esac
