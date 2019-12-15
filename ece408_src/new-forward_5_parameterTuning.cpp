@@ -108,12 +108,21 @@ void forward<gpu, float>(mshadow::Tensor<gpu, 4, float> &y, const mshadow::Tenso
     const int H_out = H - K + 1;
     const int W_out = W - K + 1;
 
-    dim3 gridDim(ceil(H_out*W_out/(1.0*BLOCK_WIDTH)),ceil(M/(1.0*BLOCK_WIDTH)),B);
-	dim3 blockDim(BLOCK_WIDTH,BLOCK_WIDTH,1);
+    if (M == 24) {
+        dim3 gridDim(ceil(H_out*W_out/(1.0*BLOCK_WIDTH)),ceil(M/(1.0*BLOCK_WIDTH)),B);
+        dim3 blockDim(BLOCK_WIDTH,BLOCK_WIDTH,1);
+    
+        ConvLayerForward<<<gridDim, blockDim, 0, s>>>(C, K, M, H, W, W_out, H_out, x.dptr_, w.dptr_, y.dptr_);
 
-	ConvLayerForward2<<<gridDim, blockDim, 0, s>>>(C, K, M, H, W, W_out, H_out, x.dptr_, w.dptr_, y.dptr_);
+        MSHADOW_CUDA_CALL(cudaDeviceSynchronize());
+    } else {
+        dim3 gridDim(ceil(H_out*W_out/(1.0*TILE_WIDTH)),ceil(M/(1.0*TILE_WIDTH)),B);
+        dim3 blockDim(TILE_WIDTH,TILE_WIDTH,1);
+    
+        ConvLayerForward<<<gridDim, blockDim, 0, s>>>(C, K, M, H, W, W_out, H_out, x.dptr_, w.dptr_, y.dptr_);
 
-	MSHADOW_CUDA_CALL(cudaDeviceSynchronize());
+        MSHADOW_CUDA_CALL(cudaDeviceSynchronize());
+    }
 }
 
 
