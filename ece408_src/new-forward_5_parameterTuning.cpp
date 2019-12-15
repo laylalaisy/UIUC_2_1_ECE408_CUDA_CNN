@@ -3,8 +3,8 @@
 
 #define CUDA_MAX_NUM_THREADS 1024
 
-#define TILE_WIDTH_1 16
-#define TILE_WIDTH_2 24
+#define TILE_WIDTH 16
+#define BLOCK_WIDTH 24
 
 #include <mxnet/base.h>
 
@@ -20,19 +20,19 @@ __global__ void ConvLayerForward(int C, int K, int M, int H, int W, int W_out, i
 #define x4d(i3, i2, i1, i0) x[(i3) * (C * H * W) + (i2) * (H * W) + (i1) * (W) + i0]
 #define k4d(i3, i2, i1, i0) k[(i3) * (C * K * K) + (i2) * (K * K) + (i1) * (K) + i0]
 
-    __shared__ float tileMatA[TILE_WIDTH_1][TILE_WIDTH_1];
-    __shared__ float tileMatB[TILE_WIDTH_1][TILE_WIDTH_1];
+    __shared__ float tileMatA[TILE_WIDTH][TILE_WIDTH];
+    __shared__ float tileMatB[TILE_WIDTH][TILE_WIDTH];
 
     int b = blockIdx.z;
     int tx = threadIdx.x, ty = threadIdx.y;
-    int row = blockIdx.y * TILE_WIDTH_1 + ty;
-    int column = blockIdx.x * TILE_WIDTH_1 + tx;
+    int row = blockIdx.y * TILE_WIDTH + ty;
+    int column = blockIdx.x * TILE_WIDTH + tx;
     int numMatAColumns = C*K*K; // This is the same as numMatBRows.
     float acc = 0.0;
-    int num_iterations = ceil(numMatAColumns/(1.0*TILE_WIDTH_1));
+    int num_iterations = ceil(numMatAColumns/(1.0*TILE_WIDTH));
     
     for (int i = 0; i < num_iterations; i++) {
-        int temp_col = i*TILE_WIDTH_1 + tx, temp_row = i*TILE_WIDTH_1 + ty;
+        int temp_col = i*TILE_WIDTH + tx, temp_row = i*TILE_WIDTH + ty;
         tileMatA[ty][tx] = 0;
         tileMatB[ty][tx] = 0;
     
@@ -64,7 +64,7 @@ __global__ void ConvLayerForward(int C, int K, int M, int H, int W, int W_out, i
         }
         __syncthreads();
 
-        for (int q = 0; q < TILE_WIDTH_1; q++) {
+        for (int q = 0; q < TILE_WIDTH; q++) {
             acc += tileMatA[ty][q] * tileMatB[q][tx];
         }
         __syncthreads();
@@ -108,8 +108,8 @@ void forward<gpu, float>(mshadow::Tensor<gpu, 4, float> &y, const mshadow::Tenso
     const int H_out = H - K + 1;
     const int W_out = W - K + 1;
 
-    dim3 gridDim(ceil(H_out*W_out/(1.0*TILE_WIDTH_2)),ceil(M/(1.0*TILE_WIDTH_2)),B);
-	dim3 blockDim(TILE_WIDTH_2,TILE_WIDTH_2,1);
+    dim3 gridDim(ceil(H_out*W_out/(1.0*BLOCK_WIDTH)),ceil(M/(1.0*BLOCK_WIDTH)),B);
+	dim3 blockDim(BLOCK_WIDTH,BLOCK_WIDTH,1);
 
 	ConvLayerForward2<<<gridDim, blockDim, 0, s>>>(C, K, M, H, W, W_out, H_out, x.dptr_, w.dptr_, y.dptr_);
 
