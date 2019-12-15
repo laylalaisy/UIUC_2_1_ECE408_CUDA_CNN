@@ -179,7 +179,7 @@ void forward<gpu, float>(mshadow::Tensor<gpu, 4, float> &y, const mshadow::Tenso
     	dim3 gridDim(ceil(H_out*W_out/(1.0*TILE_WIDTH_2)),ceil(M/(1.0*TILE_WIDTH_2)),B);
     	dim3 blockDim(TILE_WIDTH_2,TILE_WIDTH_2,1);
     
-    	ConvLayerForward1<<<gridDim, blockDim, 0, s>>>(C, K, M, H, W, W_out, H_out, x.dptr_, w.dptr_, y.dptr_);
+    	ConvLayerForward2<<<gridDim, blockDim, 0, s>>>(C, K, M, H, W, W_out, H_out, x.dptr_, w.dptr_, y.dptr_);
 
     	MSHADOW_CUDA_CALL(cudaDeviceSynchronize());
     } else {
