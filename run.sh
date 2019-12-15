@@ -42,7 +42,7 @@ case $1 in
 		cd UIUC_2_1_ECE408_FinalProject
 		;;
 
-	52)
+	53)
 		echo "tiled matrix multiplication with tuned parameters"
 		cp ece408_src/new-forward_5_parameterTuning.cuh ece408_src/new-forward.cuh
 		cd ..
