@@ -27,57 +27,63 @@ __global__ void ConvLayerForward1(int C, int K, int M, int H, int W, int W_out, 
     int tx = threadIdx.x, ty = threadIdx.y;
     int row = blockIdx.y * TILE_WIDTH_1 + ty;
     int column = blockIdx.x * TILE_WIDTH_1 + tx;
-    int numMatAColumns = C*K*K; // This is the same as numMatBRows.
+    int kk = K*K;
+    int numMatAColumns = C*kk; // This is the same as numMatBRows.
     float acc = 0.0;
     int num_iterations = ceil(numMatAColumns/(1.0*TILE_WIDTH_1));
     
-    for (int i = 0; i < num_iterations; i++) {
+    for (int i = 0; i < num_iterations; ++i) {
         int temp_col = i*TILE_WIDTH_1 + tx, temp_row = i*TILE_WIDTH_1 + ty;
         tileMatA[ty][tx] = 0;
         tileMatB[ty][tx] = 0;
     
         // Original indices in the filter tensor.
-        int W_m = row;
-        int W_c = temp_col/(K*K);
-        int W_h = temp_col%(K*K)/K;
-        int W_w = temp_col%(K*K)%K;
+        int W_c = temp_col/kk;
+        // int tmp = temp_col%(K*K);
+        int tmp = temp_col - W_c * kk;
+        int W_h = tmp/K;
+        // int W_w = tmp%K;
+        int W_w = tmp - W_h * K;
         if (temp_col < numMatAColumns && row < M) {
-            tileMatA[ty][tx] = k4d(W_m, W_c, W_h, W_w);
+            tileMatA[ty][tx] = k4d(row, W_c, W_h, W_w);
         }
         else {
             tileMatA[ty][tx] = 0;
         }    
 
         // Original indices in the input tensor.
-        int X_b = b;
-        int X_c = temp_row/(K*K);
-        int X_p = temp_row%(K*K)/K;
-        int X_q = (temp_row%(K*K))%K;
+        int X_c = temp_row/kk;
+        // tmp = temp_row%(K*K);
+        tmp = temp_row - X_c * kk;
+        int X_p = tmp/K;
+        // int X_q = tmp%K;
+        int X_q = tmp - X_p * K;
         int X_h = column/W_out;
-        int X_w = column%W_out;
+        // int X_w = column%W_out;
+        int X_w = column - X_h * W_out;
 
         if (temp_row < numMatAColumns && column < H_out*W_out) {
-            tileMatB[ty][tx] = x4d(X_b, X_c, X_h + X_p, X_w + X_q);
+            tileMatB[ty][tx] = x4d(b, X_c, X_h + X_p, X_w + X_q);
         }
         else {
             tileMatB[ty][tx] = 0;
         }
         __syncthreads();
 
-        for (int q = 0; q < TILE_WIDTH_1; q++) {
+        #pragma unroll
+        for (int q = 0; q < TILE_WIDTH_1; ++q) {
             acc += tileMatA[ty][q] * tileMatB[q][tx];
         }
         __syncthreads();
     }
 
     // Original indices in the output tensor.
-    int Y_b = b;
-    int Y_m = row;
     int Y_h = column / W_out;
-    int Y_w = column % W_out;
+    // int Y_w = column % W_out;
+    int Y_w = column - Y_h * W_out;
 
     if (row < M && column < W_out*H_out) {
-        y4d(Y_b, Y_m, Y_h, Y_w) = acc;
+        y4d(b, row, Y_h, Y_w) = acc;
     }
 }
 
@@ -94,57 +100,63 @@ __global__ void ConvLayerForward2(int C, int K, int M, int H, int W, int W_out, 
     int tx = threadIdx.x, ty = threadIdx.y;
     int row = blockIdx.y * TILE_WIDTH_2 + ty;
     int column = blockIdx.x * TILE_WIDTH_2 + tx;
-    int numMatAColumns = C*K*K; // This is the same as numMatBRows.
+    int kk = K*K;
+    int numMatAColumns = C*kk; // This is the same as numMatBRows.
     float acc = 0.0;
     int num_iterations = ceil(numMatAColumns/(1.0*TILE_WIDTH_2));
     
-    for (int i = 0; i < num_iterations; i++) {
+    for (int i = 0; i < num_iterations; ++i) {
         int temp_col = i*TILE_WIDTH_2 + tx, temp_row = i*TILE_WIDTH_2 + ty;
         tileMatA[ty][tx] = 0;
         tileMatB[ty][tx] = 0;
     
         // Original indices in the filter tensor.
-        int W_m = row;
-        int W_c = temp_col/(K*K);
-        int W_h = temp_col%(K*K)/K;
-        int W_w = temp_col%(K*K)%K;
+        int W_c = temp_col/kk;
+        // int tmp = temp_col%kk;
+        int tmp = temp_col - W_c * kk;
+        int W_h = tmp/K;
+        // int W_w = tmp%K;
+        int W_w = tmp - W_h * K;
         if (temp_col < numMatAColumns && row < M) {
-            tileMatA[ty][tx] = k4d(W_m, W_c, W_h, W_w);
+            tileMatA[ty][tx] = k4d(row, W_c, W_h, W_w);
         }
         else {
             tileMatA[ty][tx] = 0;
         }    
 
         // Original indices in the input tensor.
-        int X_b = b;
-        int X_c = temp_row/(K*K);
-        int X_p = temp_row%(K*K)/K;
-        int X_q = (temp_row%(K*K))%K;
+        int X_c = temp_row/kk;
+        // tmp = temp_row%kk;
+        tmp = temp_row - X_c * kk;
+        int X_p = tmp/K;
+        // int X_q = tmp%K;
+        int X_q = tmp - X_p * K;
         int X_h = column/W_out;
-        int X_w = column%W_out;
+        // int X_w = column%W_out;
+        int X_w = column - X_h * W_out;
 
         if (temp_row < numMatAColumns && column < H_out*W_out) {
-            tileMatB[ty][tx] = x4d(X_b, X_c, X_h + X_p, X_w + X_q);
+            tileMatB[ty][tx] = x4d(b, X_c, X_h + X_p, X_w + X_q);
         }
         else {
             tileMatB[ty][tx] = 0;
         }
         __syncthreads();
 
-        for (int q = 0; q < TILE_WIDTH_2; q++) {
+        #pragma unroll
+        for (int q = 0; q < TILE_WIDTH_2; ++q) {
             acc += tileMatA[ty][q] * tileMatB[q][tx];
         }
         __syncthreads();
     }
 
     // Original indices in the output tensor.
-    int Y_b = b;
-    int Y_m = row;
     int Y_h = column / W_out;
-    int Y_w = column % W_out;
+    // int Y_w = column % W_out;
+    int Y_w = column - Y_h * W_out;
 
     if (row < M && column < W_out*H_out) {
-        y4d(Y_b, Y_m, Y_h, Y_w) = acc;
+        y4d(b, row, Y_h, Y_w) = acc;
     }
 }
 
